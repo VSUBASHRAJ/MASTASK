@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Masyo.AI - Task Assistant</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      background-color: #9bb5ce;
+    }
+    h1 {
+      text-align: center;
+    }
+    #clock {
+      text-align: center;
+      font-size: 18px;
+      margin-bottom: 20px;
+    }
+    input, button {
+      padding: 10px;
+      margin: 10px;
+      font-size: 16px;
+      border-radius: 20px;
+    }
+    #taskInput {
+      width: 60%;
+      border-radius: 20px;
+    }
+    button {
+      background-color: #007bff;
+      color: white;
+      border: none;
+      cursor: pointer;
+      border-radius: 20px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+    }
+    th, td {
+      padding: 10px;
+      border: 1px solid #ccc;
+      text-align: center;
+    }
+    .important {
+      background-color: #2dc646;
+    }
+    .urgent {
+      background-color: #de1a1a;
+    }
+    .normal {
+      background-color: #f0f0f0;
+    }
+    #taskTable {
+      margin-top: 20px;
+      color: #000;
+    }
+  </style>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.0/xlsx.full.min.js"></script>
+</head>
+<body>
+  <h1>Masyo.AI Task Assistant</h1>
+  <div id="clock"></div>
+
+  <input type="text" id="taskInput" placeholder='e.g., "Create ppt at 3pm to 5pm tomorrow important"' />
+  <input type="file" id="fileUpload" />
+  <input type="url" id="linkInput" placeholder="Optional: Add a link" />
+  <button id="startVoiceButton">🎤 Start Speaking</button>
+  <button id="addTaskButton">Add Task</button>
+  <button id="prioritizeButton">Prioritize Tasks</button>
+  <button id="downloadExcelButton">Download as Excel</button>
+
+  <table id="taskTable">
+    <thead style="background-color: #1352b7; color: white;">
+      <tr>
+        <th>Task Name</th>
+        <th>Start Time</th>
+        <th>End Time</th>
+        <th>Importance</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody id="taskBody">
+      <!-- Dynamic Tasks Here -->
+    </tbody>
+  </table>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js";
+    import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, updateDoc } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
+    import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-storage.js";
+
+    // Your Firebase config
+    const firebaseConfig = {
+      apiKey: "AIzaSyDdo8kTBRw1avle8aYPY6RnObx6QdHLekk",
+      authDomain: "excellent-29bd9.firebaseapp.com",
+      projectId: "excellent-29bd9",
+      storageBucket: "excellent-29bd9.appspot.com",
+      messagingSenderId: "336170356351",
+      appId: "1:336170356351:web:23732231b3376843bb394a"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const storage = getStorage(app);
+
+    const clock = document.getElementById("clock");
+    setInterval(() => {
+      const now = new Date();
+      clock.innerText = "Current Date & Time: " + now.toLocaleString();
+    }, 1000);
+
+    function getCurrentDateTimeString() {
+      const now = new Date();
+      return now.toLocaleString('en-US', { hour12: false });
+    }
+
+    async function addTask() {
+      const input = document.getElementById("taskInput").value.trim();
+      const fileInput = document.getElementById("fileUpload").files[0];
+      const linkInput = document.getElementById("linkInput").value.trim();
+
+      if (!input) return alert("Please enter a task.");
+
+      const currentTime = getCurrentDateTimeString();
+      let fileURL = null;
+
+      if (fileInput) {
+        // Upload the file to Firebase Storage
+        const fileRef = ref(storage, `tasks/${fileInput.name}`);
+        await uploadBytes(fileRef, fileInput);
+        fileURL = await getDownloadURL(fileRef); // Get the URL of the uploaded file
+      }
+
+      // Send the task data to AI for processing
+      const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Authorization": "Bearer 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",
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          model: "mistralai/mistral-7b-instruct:free",
+          messages: [
+            {
+              role: "system",
+              content: `You are a smart task planner assistant. Today's current date and time is "${currentTime}". Given a user's natural language task input, extract the following fields and return in JSON only: task (name), start (full datetime), end (full datetime), importance (urgent, important, normal).`
+            },
+            {
+              role: "user",
+              content: input
+            }
+          ]
+        })
+      });
+
+      const data = await res.json();
+      let msg = data.choices?.[0]?.message?.content || "{}";
+      try {
+        const task = JSON.parse(msg);
+        task.fileURL = fileURL; // Add file URL to task data if present
+        task.link = linkInput || null; // Add link if provided, else null
+        const taskRef = await saveTaskToFirebase(task);
+        renderTask(task, taskRef.id);
+        document.getElementById("taskInput").value = "";
+        document.getElementById("fileUpload").value = "";
+        document.getElementById("linkInput").value = "";
+      } catch (err) {
+        alert("AI couldn't understand the task input.");
+        console.error("Parse error:", err, msg);
+      }
+    }
+
+    async function saveTaskToFirebase(task) {
+      try {
+        const docRef = await addDoc(collection(db, "tasks"), {
+          task: task.task,
+          start: task.start,
+          end: task.end,
+          importance: task.importance,
+          fileURL: task.fileURL,
+          link: task.link
+        });
+        console.log("Task saved to Firestore with ID: ", docRef.id);
+        return docRef;
+      } catch (error) {
+        console.error("Error saving to Firestore:", error);
+      }
+    }
+
+    function renderTask(task, taskId) {
+      const row = document.createElement("tr");
+
+      row.className =
+        task.importance.toLowerCase().includes("urgent") ? "urgent" :
+        task.importance.toLowerCase().includes("important") ? "important" : "";
+
+      row.innerHTML = `
+        <td contenteditable="true">${task.task}</td>
+        <td contenteditable="true">${task.start}</td>
+        <td contenteditable="true">${task.end}</td>
+        <td contenteditable="true">${task.importance}</td>
+        <td>
+          <button onclick="deleteTask(this, '${taskId}')">Delete</button>
+          <button onclick="editTask(this, '${taskId}')">Edit</button>
+        </td>
+      `;
+
+      const taskBody = document.getElementById("taskBody");
+      taskBody.appendChild(row);
+
+      if (task.fileURL) {
+        const fileRow = document.createElement("tr");
+        fileRow.innerHTML = `
+          <td colspan="4">File: <a href="${task.fileURL}" target="_blank">Download File</a></td>
+          <td></td>
+        `;
+        taskBody.appendChild(fileRow);
+      }
+
+      if (task.link) {
+        const linkRow = document.createElement("tr");
+        linkRow.innerHTML = `
+          <td colspan="4">Link: <a href="${task.link}" target="_blank">${task.link}</a></td>
+          <td></td>
+        `;
+        taskBody.appendChild(linkRow);
+      }
+    }
+
+    async function loadTasks() {
+      try {
+        const querySnapshot = await getDocs(collection(db, "tasks"));
+        querySnapshot.forEach((doc) => {
+          const task = doc.data();
+          renderTask(task, doc.id);
+        });
+      } catch (error) {
+        console.error("Error loading tasks from Firestore:", error);
+      }
+    }
+
+    async function prioritizeTasks() {
+      const rows = document.querySelectorAll('#taskBody tr');
+      const tasks = [];
+
+      rows.forEach(row => {
+        const cells = row.children;
+        const task = cells[0].innerText;
+        const start = cells[1].innerText;
+        const end = cells[2].innerText;
+        const importance = cells[3].innerText;
+        const taskId = row.id;
+
+        tasks.push({ task, start, end, importance, taskId });
+      });
+
+      tasks.sort((a, b) => new Date(a.start) - new Date(b.start));
+
+      const taskBody = document.getElementById("taskBody");
+      taskBody.innerHTML = "";
+
+      tasks.forEach(task => {
+        renderTask(task, task.taskId);
+      });
+    }
+
+    function downloadTableAsExcel() {
+      const table = document.getElementById("taskTable");
+      const wb = XLSX.utils.table_to_book(table, { sheet: "Tasks" });
+      XLSX.writeFile(wb, "tasks.xlsx");
+    }
+
+    window.deleteTask = async function(btn, taskId) {
+      try {
+        await deleteDoc(doc(db, "tasks", taskId));
+        btn.parentElement.parentElement.remove();
+      } catch (error) {
+        console.error("Error deleting task from Firestore:", error);
+      }
+    }
+
+    window.editTask = function(btn, taskId) {
+      const row = btn.parentElement.parentElement;
+      const cells = row.getElementsByTagName("td");
+      const task = cells[0].innerText.trim();
+      const start = cells[1].innerText.trim();
+      const end = cells[2].innerText.trim();
+      const importance = cells[3].innerText.trim();
+
+      row.innerHTML = `
+        <td contenteditable="true">${task}</td>
+        <td contenteditable="true">${start}</td>
+        <td contenteditable="true">${end}</td>
+        <td contenteditable="true">${importance}</td>
+        <td>
+          <button onclick="saveTaskChanges(this, '${taskId}')">Save</button>
+        </td>
+      `;
+    }
+
+    window.saveTaskChanges = async function(btn, taskId) {
+      const row = btn.parentElement.parentElement;
+      const cells = row.getElementsByTagName("td");
+
+      const task = cells[0].innerText.trim();
+      const start = cells[1].innerText.trim();
+      const end = cells[2].innerText.trim();
+      const importance = cells[3].innerText.trim();
+
+      try {
+        const taskRef = doc(db, "tasks", taskId);
+        await updateDoc(taskRef, { task, start, end, importance });
+        alert("Task updated successfully.");
+      } catch (error) {
+        console.error("Error updating task:", error);
+      }
+    }
+
+    document.getElementById("addTaskButton").addEventListener("click", addTask);
+    document.getElementById("prioritizeButton").addEventListener("click", prioritizeTasks);
+    document.getElementById("downloadExcelButton").addEventListener("click", downloadTableAsExcel);
+
+    loadTasks();
+  </script>
+</body>
+</html>
