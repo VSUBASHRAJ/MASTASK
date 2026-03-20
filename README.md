@@ -1,11 +1,11 @@
 # AI Task Assistant – Technical Documentation & Workflow
 
-## 📌 Overview
+##  Overview
 This repository contains structured documentation for an AI-powered Task Assistant that converts natural language input into organized and actionable tasks. The focus of this documentation is to present complex AI and NLP workflows in a clear, simple, and user-friendly manner.
 
 ---
 
-## 🎯 Objective
+##  Objective
 - Simplify Natural Language Processing (NLP) concepts  
 - Provide clear workflow and system understanding  
 - Create structured documentation for real-world AI applications  
@@ -13,14 +13,14 @@ This repository contains structured documentation for an AI-powered Task Assista
 
 ---
 
-## ⚙️ System Summary
+##  System Summary
 
 The AI Task Assistant allows users to input tasks in natural language (text or voice) and converts them into structured task details.
 
-### ✨ Example Input:
+###  Example Input:
 "Create PPT from 5PM to 9PM, high priority"
 
-### ✅ Output:
+###  Output:
 - Task: Create PPT  
 - Start Time: 5PM  
 - End Time: 9PM  
@@ -28,7 +28,7 @@ The AI Task Assistant allows users to input tasks in natural language (text or v
 
 ---
 
-## 🔄 Workflow
+##  Workflow
 
 1. **User Input**  
    User enters task via text or voice  
@@ -52,20 +52,20 @@ The AI Task Assistant allows users to input tasks in natural language (text or v
 
 ---
 
-## 🧠 Key Concepts Explained
+##  Key Concepts Explained
 
-### 🔹 Natural Language Processing (NLP)
+###  Natural Language Processing (NLP)
 Enables the system to understand and process human language input.
 
-### 🔹 Large Language Model (LLM)
+###  Large Language Model (LLM)
 Used to interpret user intent and extract structured information from text.
 
-### 🔹 Task Automation
+###  Task Automation
 Reduces manual effort by automatically organizing tasks based on input.
 
 ---
 
-## 🛠 Technologies Used
+##  Technologies Used
 - Python  
 - Flask  
 - Mistral API (LLM)  
@@ -74,7 +74,7 @@ Reduces manual effort by automatically organizing tasks based on input.
 
 ---
 
-## 📊 Key Features
+##  Key Features
 - Converts natural language into structured tasks  
 - Supports voice and text input  
 - Task prioritization and scheduling  
@@ -83,7 +83,7 @@ Reduces manual effort by automatically organizing tasks based on input.
 
 ---
 
-## 📖 Documentation Highlights
+##  Documentation Highlights
 - Clear step-by-step workflow  
 - Simplified explanation of AI concepts  
 - Structured and easy-to-read format  
@@ -91,7 +91,7 @@ Reduces manual effort by automatically organizing tasks based on input.
 
 ---
 
-## 🚀 How to Use
+##  How to Use
 
 1. Enter task in natural language  
 2. Submit input  
@@ -100,12 +100,12 @@ Reduces manual effort by automatically organizing tasks based on input.
 
 ---
 
-## 📌 Conclusion
+##  Conclusion
 This documentation showcases the ability to analyze AI-based systems and present them in a structured, user-friendly format, making complex workflows easy to understand and use.
 
 ---
 
-## 👤 Author
+##  Author
 **Subash Raj V**  
 - GitHub: https://github.com/VSUBASHRAJ  
 - LinkedIn: https://www.linkedin.com/in/v-subash-raj/
